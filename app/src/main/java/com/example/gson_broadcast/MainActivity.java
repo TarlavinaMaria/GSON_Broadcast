@@ -1,6 +1,5 @@
 package com.example.gson_broadcast;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -9,90 +8,78 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-     EditText etName, etPhone;
-     Button btnAdd, btnSave, btnLoad;
-     ListView listView;
-     List<Contact> contacts = new ArrayList<>();
-     ArrayAdapter<Contact> adapter;
-     static final String FILE_NAME = "contacts.json";
+    private ArrayAdapter<User> adapter;
+    private EditText etName, etPhone;
+    private List<User> users;
+    private ListView listView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Инициализация элементов интерфейса
         etName = findViewById(R.id.etName);
         etPhone = findViewById(R.id.etPhone);
-        btnAdd = findViewById(R.id.btnAdd);
-        btnSave = findViewById(R.id.btnSave);
-        btnLoad = findViewById(R.id.btnLoad);
         listView = findViewById(R.id.listView);
+        users = new ArrayList<>();
 
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, contacts);
+        // Настройка адаптера для ListView
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, users);
         listView.setAdapter(adapter);
 
-        btnAdd.setOnClickListener(v -> addContact());
+        // Обработчики нажатий на кнопки
+        Button btnAdd = findViewById(R.id.btnAdd);
+        Button btnSave = findViewById(R.id.btnSave);
+        Button btnLoad = findViewById(R.id.btnLoad);
 
-        btnSave.setOnClickListener(v -> saveContacts());
-
-        btnLoad.setOnClickListener(v -> loadContacts());
+        btnAdd.setOnClickListener(this::addUser);
+        btnSave.setOnClickListener(this::save);
+        btnLoad.setOnClickListener(this::load);
     }
 
-    private void addContact() {
-        String name = etName.getText().toString().trim();
-        String phone = etPhone.getText().toString().trim();
+    // Метод для добавления контакта
+    public void addUser(View view) {
+        String name = etName.getText().toString();
+        String phone = etPhone.getText().toString();
 
-        if (name.isEmpty() || phone.isEmpty()) {
+        if (!name.isEmpty() && !phone.isEmpty()) {
+            User user = new User(name, phone);
+            users.add(user);
+            adapter.notifyDataSetChanged(); // Обновляем список
+            etName.getText().clear(); // Очищаем поле ввода имени
+            etPhone.getText().clear(); // Очищаем поле ввода телефона
+            Toast.makeText(this, "Контакт добавлен", Toast.LENGTH_SHORT).show();
+        } else {
             Toast.makeText(this, "Заполните все поля", Toast.LENGTH_SHORT).show();
-            return;
         }
-
-        contacts.add(new Contact(name, phone));
-        adapter.notifyDataSetChanged();
-        etName.getText().clear();
-        etPhone.getText().clear();
     }
 
-    private void saveContacts() {
-        Gson gson = new Gson();
-        String json = gson.toJson(contacts);
-
-        try (FileOutputStream fos = openFileOutput(FILE_NAME, Context.MODE_PRIVATE)) {
-            fos.write(json.getBytes());
+    // Метод для сохранения контактов
+    public void save(View view) {
+        boolean result = JSONHelper.exportToJSON(this, users);
+        if (result) {
             Toast.makeText(this, "Контакты сохранены", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Ошибка при сохранении", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Не удалось сохранить контакты", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void loadContacts() {
-        Gson gson = new Gson();
-
-        try (FileInputStream fis = openFileInput(FILE_NAME)) {
-            byte[] buffer = new byte[fis.available()];
-            fis.read(buffer);
-            String json = new String(buffer);
-
-            Type type = new TypeToken<List<Contact>>() {}.getType();
-            contacts.clear();
-            contacts.addAll(gson.fromJson(json, type));
-            adapter.notifyDataSetChanged();
+    // Метод для загрузки контактов
+    public void load(View view) {
+        List<User> loadedUsers = JSONHelper.importFromJSON(this);
+        if (loadedUsers != null) {
+            users.clear();
+            users.addAll(loadedUsers);
+            adapter.notifyDataSetChanged(); // Обновляем список
             Toast.makeText(this, "Контакты загружены", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Нет сохраненных данных", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Не удалось загрузить контакты", Toast.LENGTH_SHORT).show();
         }
     }
 }
